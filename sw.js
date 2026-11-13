@@ -1,5 +1,5 @@
 // Guarda a "casca" do app para abrir rápido e sem internet. Os dados sempre vêm da rede.
-const VERSAO = 'raiz-v5';
+const VERSAO = 'raiz-v6';
 const CASCA = ['./', 'index.html', 'styles.css', 'app.js', 'config.js', 'vendor/supabase.js',
   'fonts/playfair-700.woff2', 'fonts/jakarta-400.woff2', 'fonts/jakarta-600.woff2', 'fonts/jakarta-700.woff2',
   'icons/logo.png', 'icons/icon-192.png', 'manifest.webmanifest'];
