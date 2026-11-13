@@ -761,5 +761,14 @@ document.addEventListener('visibilitychange', async () => { // ao voltar para o 
   ultimaVez = Date.now();
   try { await recarregar(); rota(); } catch { }
 });
+/* atualização automática: a cada minuto, se alguma coisa mudou (ex.: pedido novo achado pela varredura), a tela se refaz sozinha */
+const assinatura = () => S.pedidos.map(o => o.id + o.atualizado_em).join() + '|' + S.produtos.map(p => p.codigo + p.atualizado_em).join();
+setInterval(async () => {
+  if (DEMO || document.hidden || dlg.open) return;
+  if (/^#\/(novo|ajustes|pedido\/|fotos)/.test(location.hash)) return; // não atrapalha quem está digitando ou olhando fotos
+  const antes = assinatura();
+  try { await recarregar(); } catch { return; }
+  if (assinatura() !== antes) { const y = window.scrollY; rota(); window.scrollTo(0, y); toast('Chegou novidade, tela atualizada'); }
+}, 60000);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) navigator.serviceWorker.register('sw.js').catch(() => { });
 iniciar();
