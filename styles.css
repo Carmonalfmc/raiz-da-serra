@@ -75,3 +75,5 @@ dialog .ver{display:block;width:100%;max-height:52vh;object-fit:contain;backgrou
 .rank{margin-top:12px}
 .barra{height:12px;border-radius:6px;background:#E7DDC9;overflow:hidden;margin-top:6px}
 .barra i{display:block;height:100%;background:var(--verde);border-radius:6px}
+
+.quem{background:#e9dfcb;color:#2f4a32;text-align:center;padding:6px 12px;font-size:17px}

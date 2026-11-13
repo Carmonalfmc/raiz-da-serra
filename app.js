@@ -8,8 +8,10 @@ const sb = DEMO ? null : window.supabase.createClient(CFG.supabaseUrl, CFG.supab
 
 const app = document.querySelector('#app');
 const dlg = document.querySelector('#dlg');
-const S = { produtos: [], pedidos: [], midias: [], pix: '', carrinho: {}, busca: '', soFav: false, verEntregues: false, periodo: 30, cfg: { dias: 14, margem: 25, desc: 20 } };
+const S = { eu: '', produtos: [], pedidos: [], midias: [], pix: '', carrinho: {}, busca: '', soFav: false, verEntregues: false, periodo: 30, cfg: { dias: 14, margem: 25, desc: 20 } };
 
+const PESSOAS = { 'raizdaserra.ec@gmail.com': 'Carmona', 'carmonalarc@gmail.com': 'Luiz Alberto', 'raquel.morais.carmona@gmail.com': 'Raquel' };
+const nomeDe = email => PESSOAS[String(email || '').toLowerCase()] || String(email || '').split('@')[0] || '';
 const PASTAS = ['Queijos', 'Torresmo', 'Doces', 'Ovos e banha', 'Pão de queijo e quitandas', 'Gonçalves e a serra', 'Família e bastidores'];
 const VENDIDO = ['pago', 'entrega', 'finalizado'];
 const NOME_ETAPA = { novo: 'Novo pedido', pagamento: 'Aguardando pagamento', pago: 'Pago', entrega: 'Entrega parcial', finalizado: 'Entregue', cancelado: 'Cancelado' };
@@ -68,7 +70,7 @@ function demoInicial() {
   const it = (c, q, e) => { const p = DEMO_PRODUTOS.find(x => x.codigo === c); return { codigo: c, nome: p.nome, preco: p.preco, qtd: q, entregue: e || 0 }; };
   const ped = (numero, cliente, status, itens, obs) => ({
     id: 'demo-' + numero, numero, cliente, telefone: '', status, itens, obs: obs || '', entregas: [], baixado: pago({ status }),
-    total: itens.reduce((s, i) => s + i.preco * i.qtd, 0), historico: [{ em: agora(), status }], vendido_em: null, criado_em: agora(), atualizado_em: agora()
+    total: itens.reduce((s, i) => s + i.preco * i.qtd, 0), historico: [{ em: agora(), status, por: S.eu }], vendido_em: null, criado_em: agora(), atualizado_em: agora(), atualizado_por: S.eu
   });
   return {
     pix: '000.000.000-00', produtos: DEMO_PRODUTOS,
@@ -125,17 +127,17 @@ const apiSb = {
     S.cfg = { dias: +v('dias_parado') || 14, margem: v('margem_min') != null ? +v('margem_min') : 25, desc: v('desc_max') != null ? +v('desc_max') : 20 };
   },
   async salvarProduto(codigo, patch) {
-    const d = checar(await sb.from('produtos').update({ ...patch, atualizado_em: agora() }).eq('codigo', codigo).select());
+    const d = checar(await sb.from('produtos').update({ ...patch, atualizado_em: agora(), atualizado_por: S.eu }).eq('codigo', codigo).select());
     if (!d.length) throw new Error('Não encontrei esse produto.');
     return d[0];
   },
-  async novoProduto(p) { return checar(await sb.from('produtos').insert(p).select().single()); },
+  async novoProduto(p) { return checar(await sb.from('produtos').insert({ ...p, atualizado_por: S.eu }).select().single()); },
   async salvarCfg(c) {
     checar(await sb.from('ajustes').upsert([{ chave: 'dias_parado', valor: String(c.dias) }, { chave: 'margem_min', valor: String(c.margem) }, { chave: 'desc_max', valor: String(c.desc) }]));
   },
   async salvarPedido(o) {
     const antes = o.atualizado_em;
-    const linha = { ...o, atualizado_em: agora() };
+    const linha = { ...o, atualizado_em: agora(), atualizado_por: S.eu };
     if (!o.id) {
       delete linha.id; delete linha.numero; // o banco dá o próximo número, sem repetir
       return checar(await sb.from('pedidos').insert(linha).select().single());
@@ -212,7 +214,7 @@ function separar() {
 /* ---------- telas ---------- */
 function tela(titulo, corpo, voltar) {
   app.innerHTML = (DEMO ? '<div class="demo">Modo demonstração: os dados ficam só neste aparelho</div>' : '') +
-    `<header class="topo ${voltar ? '' : 'inicio'}">${voltar ? `<button class="voltar" data-ir="${voltar}">‹ Voltar</button>` : ''}<h1>${esc(titulo)}</h1></header><main>${corpo}</main>`;
+    `<header class="topo ${voltar ? '' : 'inicio'}">${voltar ? `<button class="voltar" data-ir="${voltar}">‹ Voltar</button>` : ''}<h1>${esc(titulo)}</h1></header>${S.eu && !DEMO ? `<div class="quem">Perfil: <b>${esc(S.eu)}</b></div>` : ''}<main>${corpo}</main>`;
   window.scrollTo(0, 0);
 }
 
@@ -280,7 +282,7 @@ function telaPedido(id) {
   const podeEntregar = aberto && falta(o) > 0 && !['pago', 'entrega'].includes(o.status);
   tela(`Pedido #${o.numero}`, `
     <h2 class="grupo" style="margin-top:4px">${esc(o.cliente)}</h2>
-    <p class="hist">${NOME_ETAPA[o.status]}${o.telefone ? ' · ' + esc(o.telefone) : ''} · feito em ${dataCurta(o.criado_em)}</p>${pills(o)}
+    <p class="hist">${NOME_ETAPA[o.status]}${o.telefone ? ' · ' + esc(o.telefone) : ''} · feito em ${dataCurta(o.criado_em)}</p>${o.atualizado_por ? `<p class="hist">Atualização realizada por ${esc(o.atualizado_por)}, ${dataCurta(o.atualizado_em)}</p>` : ''}${pills(o)}
     <table><tr><th>Produto</th><th class="n">Entregue</th><th class="n">Valor</th></tr>
     ${o.itens.map(i => `<tr><td>${esc(i.nome)}</td><td class="n">${i.entregue || 0} de ${i.qtd}</td><td class="n">${brl(i.preco * i.qtd)}</td></tr>`).join('')}</table>
     <div class="total"><span>Total</span><span>${brl(o.total)}</span></div>
@@ -294,7 +296,7 @@ function telaPedido(id) {
     <label class="campo">Observações<textarea id="obs">${esc(o.obs)}</textarea></label>
     <button class="btn s" data-act="salvarObs" data-id="${o.id}">Salvar observações</button>
     <h2 class="grupo">Histórico</h2>
-    ${(o.historico || []).map(h => `<p class="hist">${dataCurta(h.em)} · ${NOME_ETAPA[h.status] || esc(h.status)}</p>`).join('')}
+    ${(o.historico || []).map(h => `<p class="hist">${dataCurta(h.em)} · ${NOME_ETAPA[h.status] || esc(h.status)}${h.por ? ' · ' + esc(h.por) : ''}</p>`).join('')}
     ${(o.entregas || []).map(e => `<p class="hist">${dataCurta(e.em)} · Entrega: ${e.itens.map(i => `${i.qtd}x ${esc(i.nome)}`).join(', ')}</p>`).join('')}
     ${(o.entregas || []).length && o.status !== 'cancelado' ? `<button class="btn s" data-act="desfazer" data-id="${o.id}">Desfazer a última entrega</button>` : ''}
     ${aberto ? `<button class="btn perigo" data-act="cancelar" data-id="${o.id}">Cancelar este pedido</button>` : ''}`, '#/pedidos');
@@ -581,7 +583,7 @@ function formProduto(p) {
   const prox = 'RS' + String(Math.max(0, ...S.produtos.map(x => +(x.codigo.match(/\d+/) || [0])[0])) + 1).padStart(2, '0');
   dlg.innerHTML = `<h2>${novo ? 'Novo produto' : esc(p.nome)}</h2>
     ${novo ? `<label class="campo">Código<input type="text" id="fCod" value="${prox}" autocomplete="off"></label>
-    <label class="campo">Nome do produto<input type="text" id="fNome" autocomplete="off"></label>` : `<p class="hist">${esc(p.codigo)}</p>`}
+    <label class="campo">Nome do produto<input type="text" id="fNome" autocomplete="off"></label>` : `<p class="hist">${esc(p.codigo)}</p>${p.atualizado_por ? `<p class="hist">Atualização realizada por ${esc(p.atualizado_por)}, ${dataCurta(p.atualizado_em)}</p>` : ''}`}
     <label class="campo">Preço de venda (R$)<input type="text" inputmode="decimal" id="fPreco" value="${dec(p?.preco)}"></label>
     <label class="campo">Custo, quanto você paga (R$)<input type="text" inputmode="decimal" id="fCusto" value="${dec(p?.custo)}"></label>
     <p class="hist" id="fMargem"></p>
@@ -618,7 +620,7 @@ function formProduto(p) {
 
 /* ---------- ações ---------- */
 function mudar(o, status) {
-  o.status = status; o.historico = [...(o.historico || []), { em: agora(), status }];
+  o.status = status; o.historico = [...(o.historico || []), { em: agora(), status, por: S.eu }];
   if (VENDIDO.includes(status) && !o.vendido_em) o.vendido_em = agora();
 }
 const ACOES = {
@@ -701,7 +703,7 @@ const ACOES = {
     el.disabled = true;
     const o = await gravar({
       cliente, telefone: document.querySelector('#telefone').value.trim(), status: 'novo', itens, entregas: [], obs: document.querySelector('#obs').value.trim(),
-      total: itens.reduce((s, i) => s + i.preco * i.qtd, 0), historico: [{ em: agora(), status: 'novo' }], baixado: false, vendido_em: null, criado_em: agora()
+      total: itens.reduce((s, i) => s + i.preco * i.qtd, 0), historico: [{ em: agora(), status: 'novo', por: S.eu }], baixado: false, vendido_em: null, criado_em: agora()
     });
     if (o) { S.carrinho = {}; toast(`Pedido #${o.numero} salvo`); location.hash = '#/pedido/' + o.id; }
   },
@@ -744,6 +746,7 @@ async function iniciar() {
     if (!DEMO) {
       const { data } = await sb.auth.getSession();
       if (!data.session) return telaLogin();
+      S.eu = nomeDe(data.session.user && data.session.user.email);
       if (VEIO_DE_LINK && !sessionStorage.getItem('senha-ok')) return telaNovaSenha();
       const { data: ok, error } = await sb.rpc('eh_permitido');
       if (error) throw new Error(error.message);
