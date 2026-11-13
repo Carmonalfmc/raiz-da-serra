@@ -1,0 +1,64 @@
+@font-face{font-family:Playfair;src:url(fonts/playfair-700.woff2);font-weight:700;font-display:swap}
+@font-face{font-family:Jakarta;src:url(fonts/jakarta-400.woff2);font-weight:400;font-display:swap}
+@font-face{font-family:Jakarta;src:url(fonts/jakarta-600.woff2);font-weight:600;font-display:swap}
+@font-face{font-family:Jakarta;src:url(fonts/jakarta-700.woff2);font-weight:700;font-display:swap}
+:root{--verde:#4C5B3E;--terra:#BD5E3B;--terra-esc:#9C4526;--creme:#F4EDE1;--tinta:#2E2317;--papel:#FFFBF4;--linha:#DDD0BB;--suave:#6B5846}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:Jakarta,system-ui,sans-serif;font-size:19px;line-height:1.45;color:var(--tinta);background:var(--creme);min-height:100vh}
+button,input,textarea,select{font:inherit;color:inherit}
+h1,h2{font-family:Playfair,Georgia,serif;font-weight:700;line-height:1.15}
+.carregando{padding:60px 24px;text-align:center}
+header.topo{position:sticky;top:0;z-index:5;background:var(--verde);color:var(--creme);padding:calc(10px + env(safe-area-inset-top)) 12px 10px;display:flex;align-items:center;gap:8px}
+header.topo h1{font-size:24px;flex:1;text-align:center;padding-right:96px}
+header.topo .voltar{width:96px;min-height:48px;background:rgba(244,237,225,.16);color:var(--creme);border:0;border-radius:12px;font-weight:700;font-size:18px}
+header.topo.inicio h1{padding:0}
+.demo{background:#F5C27A;color:var(--tinta);font-size:16px;font-weight:600;text-align:center;padding:8px 12px}
+main{max-width:640px;margin:0 auto;padding:18px 16px calc(40px + env(safe-area-inset-bottom))}
+.logo{display:block;width:230px;max-width:70%;margin:6px auto 2px;mix-blend-mode:multiply}
+.lema{text-align:center;color:var(--suave);font-weight:600;margin-bottom:20px}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:60px;padding:12px 18px;border-radius:16px;border:2px solid transparent;font-weight:700;font-size:20px;text-align:center;cursor:pointer;text-decoration:none;margin-top:12px}
+.btn.p{background:var(--terra-esc);color:#fff}
+.btn.v{background:var(--verde);color:#fff}
+.btn.s{background:var(--papel);color:var(--tinta);border-color:var(--linha)}
+.btn.perigo{background:var(--papel);color:#9B2C1C;border-color:#D9A79B}
+.btn:disabled{opacity:.55}
+.btn:focus-visible,input:focus-visible,textarea:focus-visible,.card:focus-visible,.midia:focus-visible{outline:4px solid #F5C27A;outline-offset:2px}
+.grande{min-height:104px;flex-direction:column;gap:2px;font-size:24px}
+.grande small{font-size:17px;font-weight:600;opacity:.92}
+.aviso{background:var(--papel);border:2px solid var(--linha);border-radius:16px;padding:14px 16px;margin-top:18px;font-weight:600}
+.aviso li{list-style:none;padding:4px 0}
+h2.grupo{font-size:22px;margin:26px 0 4px;color:var(--verde)}
+.vazio{color:var(--suave);padding:8px 0}
+.card{display:block;width:100%;text-align:left;background:var(--papel);border:2px solid var(--linha);border-radius:16px;padding:14px 16px;margin-top:12px}
+.card .linha1{display:flex;justify-content:space-between;gap:10px;font-weight:700;font-size:21px}
+.card .itens{color:var(--suave);font-size:18px;margin-top:4px}
+.pill{display:inline-block;border-radius:999px;padding:3px 12px;font-size:16px;font-weight:700;margin:8px 6px 0 0;background:#E7DDC9}
+.pill.ok{background:#DCE6D2;color:#2F4423}.pill.al{background:#F8DCC9;color:#7A3212}
+table{width:100%;border-collapse:collapse;background:var(--papel);border-radius:14px;overflow:hidden;margin-top:12px}
+th,td{padding:11px 10px;text-align:left;border-bottom:1px solid var(--linha);font-size:18px;vertical-align:top}
+th{background:#E7DDC9;font-size:16px}td.n,th.n{text-align:center;font-weight:700;white-space:nowrap}
+tr:last-child td{border-bottom:0}
+label.campo{display:block;font-weight:700;margin-top:16px}
+input[type=text],input[type=tel],input[type=email],input[type=password],input[type=search],textarea{display:block;width:100%;min-height:58px;margin-top:6px;padding:12px 14px;border:2px solid #A8977F;border-radius:14px;background:#fff;font-size:20px}
+textarea{min-height:96px}
+.prod{display:flex;align-items:center;gap:10px;background:var(--papel);border:2px solid var(--linha);border-radius:16px;padding:10px 12px;margin-top:10px}
+.prod .nome{flex:1;font-weight:600;font-size:18px;line-height:1.25}.prod .nome small{display:block;color:var(--suave);font-weight:600}
+.passo{display:flex;align-items:center;gap:4px}
+.passo button{width:56px;height:56px;border-radius:14px;border:2px solid var(--verde);background:#fff;color:var(--verde);font-size:30px;font-weight:700;line-height:1}
+.passo output{min-width:38px;text-align:center;font-weight:700;font-size:24px}
+.total{display:flex;justify-content:space-between;font-weight:700;font-size:24px;margin-top:18px;padding-top:14px;border-top:2px solid var(--linha)}
+.hist{color:var(--suave);font-size:17px;margin-top:6px}
+.grade{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.midia{position:relative;background:var(--papel);border:2px solid var(--linha);border-radius:14px;overflow:hidden;padding:0;text-align:left}
+.midia img,.midia video{display:block;width:100%;aspect-ratio:1;object-fit:cover;background:#D8CBB5}
+.midia .leg{padding:8px 10px;font-size:16px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.midia .tag{position:absolute;top:8px;left:8px;background:rgba(46,35,23,.82);color:#fff;border-radius:8px;padding:2px 8px;font-size:15px;font-weight:700}
+.midia .fav{position:absolute;top:8px;right:8px;background:#F5C27A;color:var(--tinta);border-radius:8px;padding:2px 8px;font-size:15px;font-weight:700}
+dialog{border:0;border-radius:20px;padding:20px 18px;width:min(560px,94vw);max-height:92vh;overflow:auto;background:var(--creme);color:var(--tinta);margin:auto}
+dialog::backdrop{background:rgba(46,35,23,.6)}
+dialog h2{font-size:24px;margin-bottom:6px}
+dialog .ver{display:block;width:100%;max-height:52vh;object-fit:contain;background:#2E2317;border-radius:12px}
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--tinta);color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .2s;max-width:92vw;text-align:center;z-index:50}
+#toast.on{opacity:1}
+@media (prefers-reduced-motion:reduce){#toast{transition:none}}
