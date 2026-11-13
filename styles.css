@@ -62,3 +62,16 @@ dialog .ver{display:block;width:100%;max-height:52vh;object-fit:contain;backgrou
 #toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--tinta);color:#fff;padding:14px 22px;border-radius:14px;font-weight:700;opacity:0;pointer-events:none;transition:opacity .2s;max-width:92vw;text-align:center;z-index:50}
 #toast.on{opacity:1}
 @media (prefers-reduced-motion:reduce){#toast{transition:none}}
+
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.kpi{background:var(--papel);border:2px solid var(--linha);border-radius:16px;padding:12px 14px}
+.kpi b{display:block;font-size:24px;line-height:1.2}.kpi small{display:block;color:var(--suave);font-size:16px;font-weight:600;line-height:1.25}
+.kpi.al b{color:#9B2C1C}
+.abas{display:flex;gap:8px;margin-top:14px}
+.abas button{flex:1;min-height:54px;border-radius:14px;border:2px solid var(--linha);background:var(--papel);font-weight:700;font-size:18px}
+.abas button.on{background:var(--verde);border-color:var(--verde);color:#fff}
+.abas.pequeno button{min-height:46px;font-size:17px}
+.card.apagado{opacity:.6}
+.rank{margin-top:12px}
+.barra{height:12px;border-radius:6px;background:#E7DDC9;overflow:hidden;margin-top:6px}
+.barra i{display:block;height:100%;background:var(--verde);border-radius:6px}

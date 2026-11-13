@@ -8,7 +8,7 @@ const sb = DEMO ? null : window.supabase.createClient(CFG.supabaseUrl, CFG.supab
 
 const app = document.querySelector('#app');
 const dlg = document.querySelector('#dlg');
-const S = { produtos: [], pedidos: [], midias: [], pix: '', carrinho: {}, busca: '', soFav: false, verEntregues: false };
+const S = { produtos: [], pedidos: [], midias: [], pix: '', carrinho: {}, busca: '', soFav: false, verEntregues: false, periodo: 30, cfg: { dias: 14, margem: 25, desc: 20 } };
 
 const PASTAS = ['Queijos', 'Torresmo', 'Doces', 'Ovos e banha', 'Pão de queijo e quitandas', 'Gonçalves e a serra', 'Família e bastidores'];
 const VENDIDO = ['pago', 'entrega', 'finalizado'];
@@ -62,7 +62,7 @@ const DEMO_PRODUTOS = [
   ['RS16', 'Doce de Leite com Açúcar 600 g', 28], ['RS17', 'Cocada Cremosa com Maracujá com Açúcar 600 g', 28],
   ['RS18', 'Queijo Meia Cura Meia Banda (aprox. 450 g)', 28], ['RS19', 'Queijo Meia Cura Peça Inteira (aprox. 900 g)', 50],
   ['RS20', 'Requeijão do Norte 300 g', 28], ['RS21', 'Queijo Mussarela Nozinho (aprox. 280 g)', 25]
-].map(([codigo, nome, preco]) => ({ codigo, nome, preco, estoque: null, ativo: true }));
+].map(([codigo, nome, preco]) => ({ codigo, nome, preco, custo: null, estoque: null, minimo: 2, ativo: true, criado_em: new Date(Date.now() - 30 * 864e5).toISOString() }));
 
 function demoInicial() {
   const it = (c, q, e) => { const p = DEMO_PRODUTOS.find(x => x.codigo === c); return { codigo: c, nome: p.nome, preco: p.preco, qtd: q, entregue: e || 0 }; };
@@ -86,7 +86,7 @@ const apiDemo = {
   async carregar() {
     try { this._d = JSON.parse(localStorage.getItem('raiz-demo')); } catch { this._d = null; }
     if (!this._d) { this._d = demoInicial(); this._salvar(); }
-    S.produtos = this._d.produtos; S.pedidos = this._d.pedidos; S.pix = this._d.pix;
+    S.produtos = this._d.produtos; S.pedidos = this._d.pedidos; S.pix = this._d.pix; S.cfg = this._d.cfg || S.cfg;
   },
   async salvarPedido(o) {
     o.atualizado_em = agora();
@@ -95,6 +95,9 @@ const apiDemo = {
     this._salvar(); return o;
   },
   async ajustarEstoque() { },
+  async salvarProduto(codigo, patch) { const p = this._d.produtos.find(x => x.codigo === codigo); Object.assign(p, patch, { atualizado_em: agora() }); this._salvar(); return p; },
+  async novoProduto(p) { const n = { ...p, criado_em: agora() }; this._d.produtos.push(n); this._salvar(); return n; },
+  async salvarCfg(c) { this._d.cfg = c; this._salvar(); },
   async salvarPix(v) { this._d.pix = v; this._salvar(); },
   async enviarMidia(file, pasta, tipo, duracao) {
     const m = { id: 'm' + Date.now() + Math.random(), pasta, nome: file.name.replace(/\.[^.]+$/, ''), tipo, duracao, favorito: false, criado_em: agora(), url: URL.createObjectURL(file) };
@@ -111,13 +114,24 @@ const urlCache = new Map();
 const apiSb = {
   async carregar() {
     const [prod, ped, aj, mid] = await Promise.all([
-      sb.from('produtos').select('*').eq('ativo', true).order('codigo'),
+      sb.from('produtos').select('*').order('codigo'),
       sb.from('pedidos').select('*').order('numero', { ascending: false }),
       sb.from('ajustes').select('*'),
       sb.from('midias').select('*').order('criado_em', { ascending: false })
     ]);
     S.produtos = checar(prod); S.pedidos = checar(ped); S.midias = checar(mid);
-    S.pix = (checar(aj).find(a => a.chave === 'pix') || {}).valor || '';
+    const ajustes = checar(aj), v = k => (ajustes.find(a => a.chave === k) || {}).valor;
+    S.pix = v('pix') || '';
+    S.cfg = { dias: +v('dias_parado') || 14, margem: v('margem_min') != null ? +v('margem_min') : 25, desc: v('desc_max') != null ? +v('desc_max') : 20 };
+  },
+  async salvarProduto(codigo, patch) {
+    const d = checar(await sb.from('produtos').update({ ...patch, atualizado_em: agora() }).eq('codigo', codigo).select());
+    if (!d.length) throw new Error('Não encontrei esse produto.');
+    return d[0];
+  },
+  async novoProduto(p) { return checar(await sb.from('produtos').insert(p).select().single()); },
+  async salvarCfg(c) {
+    checar(await sb.from('ajustes').upsert([{ chave: 'dias_parado', valor: String(c.dias) }, { chave: 'margem_min', valor: String(c.margem) }, { chave: 'desc_max', valor: String(c.desc) }]));
   },
   async salvarPedido(o) {
     const antes = o.atualizado_em;
@@ -216,6 +230,7 @@ function telaInicio() {
     <p class="lema">De Gonçalves, para você</p>
     <button class="btn p grande" data-ir="#/pedidos">Pedidos<small>${acao ? acao + ' para cuidar' : 'Tudo em dia'}</small></button>
     <button class="btn v grande" data-ir="#/fotos">Fotos e vídeos<small>${S.midias.length} guardados</small></button>
+    <button class="btn s grande" data-ir="#/controle">Controle da loja<small>Produtos, preços, margem e vendas</small></button>
     <button class="btn s grande" disabled>Criar post<small>Chega na próxima versão</small></button>
     <div class="aviso"><ul>${av.length ? av.map(a => `<li>${a}</li>`).join('') : '<li>Nenhum pedido esperando por você.</li>'}</ul></div>
     <button class="btn s" data-ir="#/ajustes">Ajustes</button>`);
@@ -295,7 +310,7 @@ function telaNovo() {
     <label class="campo">Nome do cliente<input type="text" id="cliente" autocomplete="off" enterkeyhint="done"></label>
     <label class="campo">Telefone (se quiser)<input type="tel" id="telefone" autocomplete="off"></label>
     <h2 class="grupo">Toque no + para escolher os produtos</h2>
-    ${S.produtos.map(p => `<div class="prod"><div class="nome">${esc(p.nome)}<small>${brl(p.preco)}</small></div>${passo(p.codigo, S.carrinho[p.codigo] || 0)}</div>`).join('')}
+    ${S.produtos.filter(p => p.ativo !== false).map(p => `<div class="prod"><div class="nome">${esc(p.nome)}<small>${brl(p.preco)}</small></div>${passo(p.codigo, S.carrinho[p.codigo] || 0)}</div>`).join('')}
     <label class="campo">Observações (se quiser)<textarea id="obs"></textarea></label>
     <div class="total"><span>Total</span><span id="totalNovo">${brl(totalCarrinho())}</span></div>
     <button class="btn p" data-act="salvarNovo">Salvar pedido</button>`, '#/pedidos');
@@ -409,6 +424,11 @@ function telaAjustes() {
   tela('Ajustes', `
     <label class="campo">Chave Pix (vai sozinha na mensagem para o cliente copiar)<input type="text" id="pix" value="${esc(S.pix)}" autocomplete="off"></label>
     <button class="btn p" data-act="salvarPix">Salvar chave Pix</button>
+    <h2 class="grupo">Regras do controle</h2>
+    <label class="campo">Dias sem vender para avisar que o produto está parado<input type="text" inputmode="numeric" id="cfgDias" value="${S.cfg.dias}"></label>
+    <label class="campo">Lucro mínimo sobre o custo nas ofertas (%)<input type="text" inputmode="numeric" id="cfgMargem" value="${S.cfg.margem}"></label>
+    <label class="campo">Desconto máximo nas ofertas (%)<input type="text" inputmode="numeric" id="cfgDesc" value="${S.cfg.desc}"></label>
+    <button class="btn p" data-act="salvarCfg">Salvar regras</button>
     <button class="btn s" data-act="atualizar">Atualizar os dados agora</button>
     <button class="btn s" data-act="sair">${DEMO ? 'Apagar os dados de demonstração' : 'Sair da conta'}</button>
     <p class="hist" style="margin-top:20px">Raiz da Serra, versão 1.0${DEMO ? ' (demonstração)' : ''}</p>`, '#/');
@@ -450,6 +470,150 @@ function telaNovaSenha(msg) {
     if (error) return telaNovaSenha('Não consegui salvar: ' + error.message);
     sessionStorage.setItem('senha-ok', '1'); history.replaceState(null, '', location.pathname); iniciar();
   };
+}
+
+
+/* ---------- controle da loja: produtos, margem, vendas ---------- */
+const DIA = 864e5;
+const num = v => { const t = String(v ?? '').trim().replace(/[^\d,.-]/g, ''); if (!t) return null; const n = Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t); return isNaN(n) ? null : n; };
+const dec = v => v == null ? '' : String(v).replace('.', ',');
+const ativos = () => S.produtos.filter(p => p.ativo !== false);
+const margemDe = p => (p.preco > 0 && p.custo != null) ? (p.preco - p.custo) / p.preco : null;
+const pct = m => m == null ? 'sem custo' : Math.round(m * 100) + '%';
+const vendidos = () => S.pedidos.filter(pago);
+const dataVenda = o => o.vendido_em || o.criado_em;
+function ultimaVenda(codigo) {
+  let u = null;
+  vendidos().forEach(o => { if (o.itens.some(i => i.codigo === codigo)) { const d = dataVenda(o); if (!u || d > u) u = d; } });
+  return u;
+}
+function resumoVendas(dias) {
+  const desde = Date.now() - dias * DIA, por = {}; let fat = 0, n = 0, lucro = 0, lucroCompleto = true;
+  vendidos().forEach(o => {
+    if (Date.parse(dataVenda(o)) < desde) return; n++;
+    o.itens.forEach(i => {
+      const sub = i.qtd * i.preco; fat += sub;
+      const p = S.produtos.find(x => x.codigo === i.codigo);
+      if (p && p.custo != null) lucro += (i.preco - p.custo) * i.qtd; else lucroCompleto = false;
+      const r = por[i.codigo] || (por[i.codigo] = { codigo: i.codigo, nome: i.nome, qtd: 0, fat: 0 }); r.qtd += i.qtd; r.fat += sub;
+    });
+  });
+  return { fat, n, ticket: n ? fat / n : 0, lucro, lucroCompleto, por };
+}
+function oferta(p) {
+  if (!(p.preco > 0)) return null;
+  const mm = (S.cfg.margem || 0) / 100;
+  let alvo = p.preco * (1 - (S.cfg.desc || 0) / 100);
+  if (p.custo != null) alvo = Math.max(alvo, p.custo * (1 + mm));
+  alvo = Math.round(alvo * 10) / 10; // preço redondo, de 10 em 10 centavos
+  if (alvo >= p.preco) return { preco: null };
+  return { preco: alvo, margem: p.custo != null ? (alvo - p.custo) / alvo : null };
+}
+function parados() {
+  const lim = S.cfg.dias || 14, out = [];
+  ativos().forEach(p => {
+    if (!(p.estoque > 0)) return;
+    const u = ultimaVenda(p.codigo), ref = u || p.criado_em || p.atualizado_em; if (!ref) return;
+    const dias = Math.floor((Date.now() - Date.parse(ref)) / DIA);
+    if (dias >= lim) out.push({ p, dias, nunca: !u, oferta: oferta(p) });
+  });
+  return out.sort((a, b) => b.dias - a.dias);
+}
+function situacao(p) {
+  if (p.ativo === false) return '<span class="pill">Fora do catálogo</span>';
+  if (p.estoque == null) return '<span class="pill">Estoque não contado</span>';
+  if (p.estoque <= 0) return '<span class="pill al">Esgotado</span>';
+  if (p.estoque <= (p.minimo ?? 0)) return '<span class="pill al">Repor</span>';
+  return '<span class="pill ok">Em estoque</span>';
+}
+
+function telaControle(aba) {
+  const rs = resumoVendas(30), baixo = ativos().filter(p => p.estoque != null && p.estoque <= (p.minimo ?? 0)).length, par = parados().length;
+  const abas = [['produtos', 'Produtos'], ['vendas', 'Vendas'], ['parados', 'Parados' + (par ? ` (${par})` : '')]];
+  const topo = `<div class="kpis">
+    <div class="kpi"><b>${brl(rs.fat)}</b><small>vendido em 30 dias (${rs.n} ${rs.n === 1 ? 'pedido' : 'pedidos'})</small></div>
+    <div class="kpi ${baixo ? 'al' : ''}"><b>${baixo}</b><small>${baixo === 1 ? 'produto para repor' : 'produtos para repor'}</small></div></div>
+    <div class="abas">${abas.map(([k, t]) => `<button class="${k === aba ? 'on' : ''}" data-ir="#/controle${k === 'produtos' ? '' : '/' + k}">${t}</button>`).join('')}</div>`;
+  const corpo = aba === 'vendas' ? vistaVendas() : aba === 'parados' ? vistaParados() : vistaProdutos();
+  tela('Controle', topo + corpo, '#/');
+}
+
+function vistaProdutos() {
+  const lista = [...S.produtos].sort((a, b) => (a.ativo === false) - (b.ativo === false) || a.codigo.localeCompare(b.codigo, 'pt', { numeric: true }));
+  return `<button class="btn v" data-act="novoProd">+ Novo produto</button>
+    <p class="hist">Toque em um produto para mudar preço, custo e estoque. O estoque baixa sozinho quando você marca "Já pagou" e volta se o pedido for cancelado.</p>
+    ${lista.map(p => `<div class="card ${p.ativo === false ? 'apagado' : ''}" role="link" tabindex="0" data-act="editarProd" data-c="${esc(p.codigo)}">
+      <div class="linha1"><span>${esc(p.nome)}</span><span>${brl(p.preco)}</span></div>
+      <div class="itens">${p.custo != null ? `Custo ${brl(p.custo)} · Margem ${pct(margemDe(p))}` : 'Custo e margem não informados'}<br>Estoque ${p.estoque != null ? p.estoque : 'não contado'}${p.minimo ? ` (mínimo ${p.minimo})` : ''}</div>${situacao(p)}</div>`).join('')}`;
+}
+
+function vistaVendas() {
+  const r = resumoVendas(S.periodo), rank = Object.values(r.por).sort((a, b) => b.qtd - a.qtd || b.fat - a.fat), max = rank[0]?.qtd || 1;
+  const sem = ativos().filter(p => !r.por[p.codigo]);
+  return `<div class="abas pequeno">${[7, 30, 90].map(d => `<button class="${d === S.periodo ? 'on' : ''}" data-act="periodo" data-d="${d}">${d} dias</button>`).join('')}</div>
+    <div class="kpis">
+      <div class="kpi"><b>${brl(r.fat)}</b><small>faturamento</small></div>
+      <div class="kpi"><b>${r.n}</b><small>${r.n === 1 ? 'pedido pago' : 'pedidos pagos'}</small></div>
+      <div class="kpi"><b>${r.n ? brl(r.ticket) : '-'}</b><small>ticket médio</small></div>
+      <div class="kpi"><b>${r.n && (r.lucroCompleto || r.lucro) ? brl(r.lucro) : '-'}</b><small>${r.lucroCompleto ? 'lucro estimado' : 'lucro (falta custo de alguns)'}</small></div></div>
+    <h2 class="grupo">O que mais sai</h2>
+    ${rank.length ? rank.map(x => `<div class="rank"><div class="linha1"><span>${esc(x.nome)}</span><span>${x.qtd}</span></div>
+      <div class="barra"><i style="width:${Math.max(4, x.qtd / max * 100)}%"></i></div><div class="hist">${brl(x.fat)} em vendas</div></div>`).join('') : '<p class="vazio">Ainda não há pedidos pagos nesse período.</p>'}
+    ${sem.length && rank.length ? `<h2 class="grupo">Sem venda no período</h2><p class="hist">${sem.map(p => esc(p.nome)).join(', ')}</p>` : ''}
+    <button class="btn s" data-ir="#/separar">Lista para separar</button>`;
+}
+
+function vistaParados() {
+  const l = parados();
+  if (!l.length) return `<p class="vazio">Nenhum produto parado. O aviso aparece quando um item com estoque passa ${S.cfg.dias} dias sem vender. Para isso, conte o estoque na aba Produtos.</p>`;
+  return `<p class="hist">Produtos com estoque que não saem há ${S.cfg.dias} dias ou mais.</p>` + l.map(({ p, dias, nunca, oferta: o }) => {
+    const txt = o && o.preco != null ? `Oferta Raiz da Serra: ${p.nome} de ${brl(p.preco)} por ${brl(o.preco)}, enquanto durar o estoque. Peça pelo nosso catálogo ou responda esta mensagem.` : '';
+    const linha = !o ? 'Sem preço cadastrado.' : o.preco == null ? `Com esse custo não dá para baixar o preço sem ficar abaixo do lucro mínimo de ${S.cfg.margem}% sobre o custo.`
+      : `Oferta sugerida: <b>${brl(o.preco)}</b> (de ${brl(p.preco)}${o.margem != null ? `, margem de ${Math.round(o.margem * 100)}%` : ', informe o custo para conferir a margem'})`;
+    return `<div class="card"><div class="linha1"><span>${esc(p.nome)}</span><span>${p.estoque} un.</span></div>
+      <div class="itens">${dias} dias ${nunca ? 'sem nenhuma venda' : 'sem vender'}<br>${linha}</div>
+      ${txt ? `<button class="btn s" data-act="copiar" data-t="${esc(txt)}">Copiar texto da oferta</button><button class="btn s" data-act="usarOferta" data-c="${esc(p.codigo)}" data-v="${o.preco}">Usar ${brl(o.preco)} como preço</button>` : ''}</div>`;
+  }).join('');
+}
+
+function formProduto(p) {
+  const novo = !p;
+  const prox = 'RS' + String(Math.max(0, ...S.produtos.map(x => +(x.codigo.match(/\d+/) || [0])[0])) + 1).padStart(2, '0');
+  dlg.innerHTML = `<h2>${novo ? 'Novo produto' : esc(p.nome)}</h2>
+    ${novo ? `<label class="campo">Código<input type="text" id="fCod" value="${prox}" autocomplete="off"></label>
+    <label class="campo">Nome do produto<input type="text" id="fNome" autocomplete="off"></label>` : `<p class="hist">${esc(p.codigo)}</p>`}
+    <label class="campo">Preço de venda (R$)<input type="text" inputmode="decimal" id="fPreco" value="${dec(p?.preco)}"></label>
+    <label class="campo">Custo, quanto você paga (R$)<input type="text" inputmode="decimal" id="fCusto" value="${dec(p?.custo)}"></label>
+    <p class="hist" id="fMargem"></p>
+    <label class="campo">Estoque atual (deixe vazio se não controla)<input type="text" inputmode="numeric" id="fEst" value="${p?.estoque ?? ''}"></label>
+    <label class="campo">Estoque mínimo, para avisar que precisa repor<input type="text" inputmode="numeric" id="fMin" value="${p?.minimo ?? 2}"></label>
+    ${novo ? '' : '<p class="hist">Pedidos já feitos mantêm o preço da época. O catálogo do WhatsApp não muda sozinho: ajuste o preço lá também.</p>'}
+    <button class="btn p" data-f="salvar">Salvar</button>
+    ${novo ? '' : `<button class="btn s" data-f="ativo">${p.ativo === false ? 'Voltar para o catálogo' : 'Tirar do catálogo (esconde dos novos pedidos)'}</button>`}
+    <button class="btn s" data-f="x">Fechar</button>`;
+  const margem = () => { const pr = num(dlg.querySelector('#fPreco').value), cu = num(dlg.querySelector('#fCusto').value); dlg.querySelector('#fMargem').textContent = pr > 0 && cu != null ? `Margem: ${Math.round((pr - cu) / pr * 100)}% (lucro de ${brl(pr - cu)} por unidade)` : 'Informe preço e custo para ver a margem.'; };
+  dlg.oninput = margem; margem();
+  dlg.oncancel = null;
+  dlg.onclick = async e => {
+    const b = e.target.closest('[data-f]'); if (!b) return;
+    if (b.dataset.f === 'x') return dlg.close();
+    const q = id => dlg.querySelector(id).value;
+    try {
+      if (b.dataset.f === 'ativo') { const salvo = await api.salvarProduto(p.codigo, { ativo: p.ativo === false }); Object.assign(p, salvo); dlg.close(); toast(p.ativo === false ? 'Tirado do catálogo' : 'De volta ao catálogo'); return rota(); }
+      const preco = num(q('#fPreco')); if (!(preco > 0)) return toast('Escreva o preço de venda');
+      const dados = { preco, custo: num(q('#fCusto')), estoque: q('#fEst').trim() === '' ? null : Math.max(0, Math.round(num(q('#fEst')) ?? 0)), minimo: Math.max(0, Math.round(num(q('#fMin')) ?? 0)) };
+      if (novo) {
+        const codigo = q('#fCod').trim().toUpperCase(), nome = q('#fNome').trim();
+        if (!codigo || !nome) return toast('Escreva o código e o nome');
+        if (S.produtos.some(x => x.codigo === codigo)) return toast('Esse código já existe');
+        S.produtos.push(await api.novoProduto({ codigo, nome, ativo: true, ...dados }));
+        toast('Produto cadastrado');
+      } else { Object.assign(p, await api.salvarProduto(p.codigo, dados)); toast('Produto salvo'); }
+      dlg.close(); rota();
+    } catch (err) { toast('Não consegui salvar: ' + err.message); }
+  };
+  dlg.addEventListener('close', () => { dlg.oninput = null; }, { once: true });
+  dlg.showModal();
 }
 
 /* ---------- ações ---------- */
@@ -515,6 +679,19 @@ const ACOES = {
   copPix() { S.pix ? copiar(S.pix, 'Chave Pix copiada') : toast('Cadastre a chave Pix em Ajustes'); },
   async salvarObs(d) { const o = clone(achar(d.id)); o.obs = document.querySelector('#obs').value.trim(); if (await gravar(o)) toast('Observações salvas'); },
   verEntregues() { S.verEntregues = true; rota(); },
+  novoProd() { formProduto(null); },
+  editarProd(d) { const p = S.produtos.find(x => x.codigo === d.c); if (p) formProduto(p); },
+  periodo(d) { S.periodo = +d.d; rota(); },
+  copiar(d) { copiar(d.t, 'Texto da oferta copiado'); },
+  async usarOferta(d) {
+    const p = S.produtos.find(x => x.codigo === d.c);
+    if (!await confirmar('Mudar o preço?', `${p.nome} passa de ${brl(p.preco)} para ${brl(+d.v)} aqui no app. Lembre de ajustar no catálogo do WhatsApp.`, 'Sim, mudar o preço')) return;
+    try { Object.assign(p, await api.salvarProduto(p.codigo, { preco: +d.v })); toast('Preço atualizado'); rota(); } catch (e) { toast('Não consegui salvar: ' + e.message); }
+  },
+  async salvarCfg() {
+    const c = { dias: Math.max(1, Math.round(num(document.querySelector('#cfgDias').value) || 14)), margem: Math.max(0, num(document.querySelector('#cfgMargem').value) ?? 25), desc: Math.min(90, Math.max(0, num(document.querySelector('#cfgDesc').value) ?? 20)) };
+    try { await api.salvarCfg(c); S.cfg = c; toast('Regras salvas'); } catch (e) { toast('Não consegui salvar: ' + e.message); }
+  },
   mais(d, el) { passoMudar(el, 1); }, menos(d, el) { passoMudar(el, -1); },
   async salvarNovo(d, el) {
     const cliente = document.querySelector('#cliente').value.trim();
@@ -545,7 +722,7 @@ document.addEventListener('click', e => {
   if (e.target.closest('dialog')?.id === 'dlg' && !e.target.closest('.passo')) return; // dentro do diálogo, cada diálogo cuida dos seus botões
   const el = e.target.closest('[data-act]'); if (el && ACOES[el.dataset.act]) ACOES[el.dataset.act](el.dataset, el);
 });
-document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('[role=link][data-ir]')) location.hash = e.target.dataset.ir; });
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('[role=link]')) { if (e.target.dataset.ir) location.hash = e.target.dataset.ir; else if (e.target.dataset.act && ACOES[e.target.dataset.act]) ACOES[e.target.dataset.act](e.target.dataset, e.target); } });
 
 function rota() {
   const h = location.hash || '#/';
@@ -556,6 +733,7 @@ function rota() {
   if (h === '#/separar') return telaSeparar();
   if ((m = h.match(/^#\/fotos\/(.+)/))) return telaFotos(decodeURIComponent(m[1]));
   if (h === '#/fotos') return telaFotos(null);
+  if (h === '#/controle' || h.startsWith('#/controle/')) return telaControle(h.split('/')[2] || 'produtos');
   if (h === '#/ajustes') return telaAjustes();
   telaInicio();
 }
@@ -579,7 +757,7 @@ async function iniciar() {
 let ultimaVez = Date.now();
 document.addEventListener('visibilitychange', async () => { // ao voltar para o app, busca o que mudou nos outros celulares
   if (document.hidden || dlg.open || Date.now() - ultimaVez < 60000) return;
-  if (/^#\/(novo|ajustes|pedido\/)/.test(location.hash)) return; // não atrapalha quem está digitando
+  if (/^#\/(novo|ajustes|pedido\/|controle\/?$)/.test(location.hash)) return; // não atrapalha quem está digitando
   ultimaVez = Date.now();
   try { await recarregar(); rota(); } catch { }
 });
