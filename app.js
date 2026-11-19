@@ -10,7 +10,7 @@ const app = document.querySelector('#app');
 const dlg = document.querySelector('#dlg');
 const S = { eu: '', produtos: [], pedidos: [], midias: [], pix: '', carrinho: {}, busca: '', soFav: false, verEntregues: false, periodo: 30, cfg: { dias: 14, margem: 25, desc: 20 } };
 
-const PESSOAS = { 'raizdaserra.ec@gmail.com': 'Carmona', 'carmonalarc@gmail.com': 'Luis Alberto', 'raquel.morais.carmona@gmail.com': 'Raquel' };
+const PESSOAS = { 'raizdaserra.ec@gmail.com': 'Carmona', 'carmonalarc@gmail.com': 'Luis Alberto', 'raquel.morais.carmona@gmail.com': 'Raquel', 'luis.carmona@suhaiseguradora.com': 'Luis Antônio' };
 const nomeDe = email => PESSOAS[String(email || '').toLowerCase()] || String(email || '').split('@')[0] || '';
 const PASTAS = ['Queijos', 'Torresmo', 'Doces', 'Ovos e banha', 'Pão de queijo e quitandas', 'Gonçalves e a serra', 'Família e bastidores'];
 const VENDIDO = ['pago', 'entrega', 'finalizado'];
